@@ -1,0 +1,41 @@
+*filter
+#:INPUT ACCEPT [4:208]
+#:FORWARD ACCEPT [0:0]
+#:OUTPUT ACCEPT [4:544]
+
+-P INPUT DROP
+-P OUTPUT ACCEPT
+-P FORWARD ACCEPT
+
+# BLOCK IP ADDRESSES
+#-A INPUT -s <IP> -j DROP
+
+-A INPUT -p tcp --dport <SSH_PORT_PLACEHOLDER> -m state --state NEW,ESTABLISHED -m comment --comment "SSH INPUT" -j ACCEPT
+-A OUTPUT -p tcp --sport <SSH_PORT_PLACEHOLDER> -m state --state NEW,ESTABLISHED -m comment --comment "SSH OUTPUT" -j ACCEPT
+
+-A OUTPUT -p tcp --sport 80 -m state --state NEW,ESTABLISHED -j ACCEPT -m comment --comment "HTTP INPUT"
+-A OUTPUT -p tcp --sport 21 -m state --state NEW,ESTABLISHED -j ACCEPT -m comment --comment "FTP 20 INPUT"
+-A OUTPUT -p tcp --sport 20 -m state --state NEW,ESTABLISHED -j ACCEPT -m comment --comment "FTP 21 INPUT"
+-A OUTPUT -p tcp --sport 443 -m state --state NEW,ESTABLISHED -j ACCEPT -m comment --comment "HTTPS INPUT"
+
+-A OUTPUT -p udp --dport 53 -j ACCEPT -m comment --comment "DNS"
+
+# Comment out following lines to disable ping
+-A INPUT -p icmp --icmp-type 8 -j ACCEPT -m comment --comment "ICMP PING INPUT"
+-A OUTPUT -p icmp --icmp-type 8 -j ACCEPT -m comment --comment "ICMP PING OUTPUT"
+
+-A INPUT -i lo -j ACCEPT -m comment --comment "Link Local INPUT"
+-A OUTPUT -o lo -j ACCEPT -m comment --comment "Link Local OUTPUT"
+
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT -m comment --comment "EST REL ALLOW INPUT"
+-A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT -m comment --comment "EST REL ALLOW OUTPUT"
+
+-N LOGGING
+-A INPUT -j LOGGING
+-A LOGGING -m limit --limit 2/min -j LOG --log-prefix "***IPTABLES-DROP-INFO: " --log-level 4
+-A LOGGING -j DROP
+
+:f2b-sshd - [0:0]
+-A INPUT -p tcp -m multiport --dports <SSH_PORT_PLACEHOLDER> -j f2b-sshd
+-A f2b-sshd -j RETURN
+COMMIT

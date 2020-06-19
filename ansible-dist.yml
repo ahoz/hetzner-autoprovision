@@ -1,0 +1,109 @@
+---
+- hosts: hetzner-cloud
+  become: yes
+  user: root
+  tasks: 
+    ## Install updates
+    - name: Update
+      apt:
+        update_cache: true
+        upgrade: dist
+
+    ## Install packages    
+    - name: Install IPTables Persistent
+      apt:
+        name:
+          - iptables-persistent
+          - fail2ban
+          - unattended-upgrades
+        state: present
+        update_cache: true
+      become: true
+
+    ## Create SSH group
+    - name: SSH group
+      group:
+        name: sshusers
+        state: present
+
+    ## Create SSH user
+    - name: SSH user
+      user:
+        name: "{{ ssh_user_username }}"
+        password: "{{ ssh_user_password | password_hash('sha512') }}"
+        groups:
+         - sshusers
+         - sudo
+        state: present
+        shell: /bin/bash
+        system: no
+        createhome: yes
+        home: "/home/{{ ssh_user_username }}"
+
+    ## Set SSH user key
+    - name: SSH user key
+      authorized_key:
+        user: "{{ ssh_user_username }}"
+        state: present
+        key: "{{ lookup('file', '{{ ssh_user_keyfile_path }}') }}"
+
+    ## SSH Config
+    - name: SSH Config update
+      copy:
+        src: sshd_config
+        dest: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: 0644
+
+    ## IPTables rules
+    - name: Iptables IPv4 rules
+      copy:
+        src: rules.v4
+        dest: /etc/ssh/rules.v4
+        owner: root
+        group: root
+        mode: 0644
+    - name: Iptables IPv6 rules
+      copy:
+        src: rules.v6
+        dest: /etc/ssh/rules.v6
+        owner: root
+        group: root
+        mode: 0644
+
+    ## Change root user password
+    - name: Root password
+      user:
+        name: root
+        password: "{{ root_password | password_hash('sha512') }}"
+
+    ## SSH Port
+    - name: Update SSH port in ssh config
+      replace:
+        path: /etc/ssh/sshd_config
+        regexp: '<SSH_PORT_PLACEHOLDER>'
+        replace: '{{ ssh_port }}'
+    - name: Update SSH port in iptables rules (IPv4)
+      replace:
+        path: /etc/ssh/rules.v4
+        regexp: '<SSH_PORT_PLACEHOLDER>'
+        replace: '{{ ssh_port }}'
+    - name: Update SSH port in iptables rules (IPv6)
+      replace:
+        path: /etc/ssh/rules.v6
+        regexp: '<SSH_PORT_PLACEHOLDER>'
+        replace: '{{ ssh_port }}'
+
+    ## Fail2Ban
+    - name: Create fail2ban config
+      command: cp -p /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+    - name: Enable fail2ban ssh
+      replace:
+        path: /etc/fail2ban/jail.local
+        regexp: '# SSH servers\n*#\n*[sshd]'
+        replace: '[sshd]\nenabled=true'
+    
+    ## Enable unattended upgrades
+    - name: Enable unattended upgrades
+      command: echo unattended-upgrades unattended-upgrades/enable_auto_updates boolean true | debconf-set-selections && dpkg-reconfigure -f noninteractive unattended-upgrades
