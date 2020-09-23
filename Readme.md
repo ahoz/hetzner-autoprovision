@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Terraform
+- Terraform (Master Branch: v0.13)
 - Ansible
 - Hetzner
 - Hetzner Cloud Api Token
