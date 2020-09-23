@@ -41,7 +41,7 @@ In order to set custom SSH settings *sshd_config* can be edited.
 
 ```bash
 terraform init
-terrform plan
+terraform plan
 terraform apply
 ```
 
