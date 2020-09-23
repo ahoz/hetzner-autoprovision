@@ -1,36 +1,36 @@
 provider "hcloud" {
-  token = "${var.hcloud_token}"
+  token = var.hcloud_token
 }
 
 data "hcloud_ssh_key" "ssh_key" {
-    name = "${var.ssh_key}"
+    name = var.ssh_key
 }
 
 resource "hcloud_server" "web" {
-  count = "${var.server_count}"
-  image       = "${var.image}"
-  server_type = "${var.server_type}"
-  location = "${var.location}"
-  name = "${format("${var.server_name}-%03d", count.index + 1)}"
-  ssh_keys  = ["${data.hcloud_ssh_key.ssh_key.id}"]
+  count = var.server_count
+  image       = var.image
+  server_type = var.server_type
+  location = var.location
+  name = format("%s-%03d", var.server_name, count.index + 1)
+  ssh_keys  = [data.hcloud_ssh_key.ssh_key.id]
   connection {
       user = "root"
-      host = "${hcloud_server.web[count.index].ipv4_address}"
-      private_key = "${file("${var.hcloud_ssh_key_local_path}")}"
+      host = hcloud_server.web[count.index].ipv4_address
+      private_key = file(var.hcloud_ssh_key_local_path)
   }
 }
 
 resource "local_file" "fileappend" {
   content =  "[hetzner-cloud]\n${join("\n", hcloud_server.web.*.ipv4_address)}"
-  filename = "${path.root}/ansible-hosts-config"
+  filename = format("%s/ansible-hosts-config", path.root)
 }
 
 resource "null_resource" "installansible" {
-  count = "${var.server_count}"
+  count = var.server_count
   connection {
       user = "root"
-      host = "${hcloud_server.web[count.index].ipv4_address}"
-      private_key = "${file("${var.hcloud_ssh_key_local_path}")}"
+      host = hcloud_server.web[count.index].ipv4_address
+      private_key = file(var.hcloud_ssh_key_local_path)
   }
   provisioner "remote-exec" {
    inline = [
@@ -54,11 +54,11 @@ resource "null_resource" "runansible" {
 }
 
 resource "null_resource" "restartnodes" {
-  count = "${var.server_count}"
+  count = var.server_count
   connection {
       user = "root"
-      host = "${hcloud_server.web[count.index].ipv4_address}"
-      private_key = "${file("${var.hcloud_ssh_key_local_path}")}"
+      host = hcloud_server.web[count.index].ipv4_address
+      private_key = file(var.hcloud_ssh_key_local_path)
   }
   provisioner "remote-exec" {
    inline = [
@@ -71,7 +71,7 @@ resource "null_resource" "restartnodes" {
 }
 
 output "ip" {
-    value = "${join(",", hcloud_server.web.*.ipv4_address)}"
+    value = join(",", hcloud_server.web.*.ipv4_address)
 }
 
 output "Done" {
